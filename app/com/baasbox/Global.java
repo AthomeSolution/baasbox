@@ -16,39 +16,6 @@
  */
 package com.baasbox;
 
-import static play.Logger.debug;
-import static play.Logger.error;
-import static play.Logger.info;
-import static play.mvc.Results.badRequest;
-import static play.mvc.Results.internalServerError;
-import static play.mvc.Results.notFound;
-
-import play.api.libs.concurrent.Promise;
-import java.io.UnsupportedEncodingException;
-import play.mvc.Results.*;
-import play.libs.F;
-import play.mvc.*;
-import play.mvc.Http.*;
-
-import java.util.Iterator;
-import java.util.Set;
-
-import org.apache.commons.lang.StringUtils;
-import org.apache.commons.lang.exception.ExceptionUtils;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-
-import play.Application;
-import play.Configuration;
-import play.GlobalSettings;
-import play.Logger;
-import play.Play;
-import play.api.mvc.EssentialFilter;
-import play.core.j.JavaResultExtractor;
-import play.libs.Json;
-import play.mvc.Http.RequestHeader;
-import play.mvc.Result;
-
 import com.baasbox.configuration.Internal;
 import com.baasbox.configuration.IosCertificateHandler;
 import com.baasbox.configuration.PropertiesConfigurationHelper;
@@ -57,12 +24,29 @@ import com.baasbox.metrics.BaasBoxMetric;
 import com.baasbox.security.ISessionTokenProvider;
 import com.baasbox.security.SessionTokenProvider;
 import com.baasbox.service.storage.StatisticsService;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.orientechnologies.orient.core.Orient;
 import com.orientechnologies.orient.core.config.OGlobalConfiguration;
 import com.orientechnologies.orient.core.db.document.ODatabaseDocumentPool;
 import com.orientechnologies.orient.core.db.document.ODatabaseDocumentTx;
 import com.orientechnologies.orient.core.db.record.ODatabaseRecordTx;
 import com.orientechnologies.orient.core.exception.ODatabaseException;
+import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang.exception.ExceptionUtils;
+import play.*;
+import play.api.mvc.EssentialFilter;
+import play.core.j.JavaResultExtractor;
+import play.libs.F;
+import play.libs.Json;
+import play.mvc.Http.RequestHeader;
+import play.mvc.SimpleResult;
+
+import java.util.Iterator;
+import java.util.Set;
+
+import static play.Logger.*;
+import static play.mvc.Results.*;
 
 public class Global extends GlobalSettings {
 	
@@ -195,6 +179,9 @@ public class Global extends GlobalSettings {
     	//activate metrics
     	BaasBoxMetric.setExcludeURIStartsWith(com.baasbox.controllers.routes.Root.startMetrics().url());
     	if (BBConfiguration.getComputeMetrics()) BaasBoxMetric.start();
+
+        // Manual image hook registration
+        new com.baasbox.controllers.hooks.Image();
     	
     	//prepare the Welcome Message
 	    String port=Play.application().configuration().getString("http.port");
