@@ -367,6 +367,9 @@ GET	    /root/db/export											com.baasbox.controllers.Root.getExports()
 POST	/root/db/import         							    com.baasbox.controllers.Root.importDb()
 
 
+#Data Operation
+POST    /convertData                com.baasbox.controllers.DataConvert.toJson()
+POST    /upload                     com.baasbox.controllers.UploadController.upload()
 
 # Home page & general API
 GET		/refresh					com.baasbox.controllers.Generic.refreshSessionToken()
