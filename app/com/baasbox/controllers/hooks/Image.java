@@ -1,5 +1,7 @@
 package com.baasbox.controllers.hooks;
 
+import com.baasbox.BBConfiguration;
+import com.baasbox.configuration.Application;
 import com.baasbox.service.storage.AssetService;
 import com.google.common.base.Strings;
 import com.orientechnologies.orient.core.Orient;
@@ -51,7 +53,7 @@ public class Image extends ODocumentHookAbstract implements ODatabaseLifecycleLi
             return RESULT.RECORD_NOT_CHANGED;
 
         String sUrl = iDocument.field(FIELD_IMG);
-        if (Strings.isNullOrEmpty(sUrl) || sUrl.startsWith("/asset/"))
+        if (Strings.isNullOrEmpty(sUrl) || sUrl.contains("?X-BAASBOX-APPCODE="))
             return RESULT.RECORD_NOT_CHANGED;
 
         if (!sUrl.startsWith("http"))
@@ -76,7 +78,8 @@ public class Image extends ODocumentHookAbstract implements ODatabaseLifecycleLi
                     imageDL.getContent()
             );
 
-            iDocument.field(FIELD_IMG, "/asset/" + name);
+            String assetUrl = getBaseUrl() + "/asset/" + name + "?X-BAASBOX-APPCODE=" + BBConfiguration.getAPPCODE();
+            iDocument.field(FIELD_IMG, assetUrl);
             return RESULT.RECORD_CHANGED;
         } catch (Throwable throwable) {
             Logger.error("Failed to save asset: " + name, throwable);
@@ -104,6 +107,18 @@ public class Image extends ODocumentHookAbstract implements ODatabaseLifecycleLi
 
     private static String getAssetName(ODocument doc, String fieldName) throws UnsupportedEncodingException {
         return doc.field("id") + URLEncoder.encode(fieldName, "UTF-8");
+    }
+
+    private static String getBaseUrl() {
+
+        String host = Application.NETWORK_HTTP_PORT.getValueAsString();
+        String port = Application.NETWORK_HTTP_URL.getValueAsString();
+
+        if (!Strings.isNullOrEmpty(port))
+            host += ":" + port;
+        if (!host.startsWith("http"))
+            host = (Application.NETWORK_HTTP_SSL.getValueAsBoolean() ? "https://" : "http://") + host;
+        return host;
     }
 
     private static final class ImageDownloader {
