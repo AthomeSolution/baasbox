@@ -111,8 +111,8 @@ public class Image extends ODocumentHookAbstract implements ODatabaseLifecycleLi
 
     private static String getBaseUrl() {
 
-        String host = Application.NETWORK_HTTP_PORT.getValueAsString();
-        String port = Application.NETWORK_HTTP_URL.getValueAsString();
+        String host = Application.NETWORK_HTTP_URL.getValueAsString();
+        String port = Application.NETWORK_HTTP_PORT.getValueAsString();
 
         if (!Strings.isNullOrEmpty(port))
             host += ":" + port;
