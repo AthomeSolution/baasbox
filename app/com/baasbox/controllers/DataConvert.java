@@ -32,13 +32,13 @@ import static play.libs.WS.url;
 public class DataConvert extends Controller {
     private static final String XMLNAMESPACE = "xmlns";
 
-    @With({UserOrAnonymousCredentialsFilter.class,ConnectToDBFilter.class,ExtractQueryParameters.class})
-    public static Result toJson(){
+    @With({UserOrAnonymousCredentialsFilter.class, ConnectToDBFilter.class, ExtractQueryParameters.class})
+    public static Result toJson() {
         if (Logger.isTraceEnabled()) Logger.trace("Method Start");
         Http.RequestBody body = request().body();
         Map<String, String[]> bodyContent = body.asMultipartFormData().asFormUrlEncoded();
-        final JsonNode bodyJson= Json.parse(bodyContent.get("config")[0]);
-        if (bodyJson==null) return badRequest("The body payload cannot be empty.");
+        final JsonNode bodyJson = Json.parse(bodyContent.get("config")[0]);
+        if (bodyJson == null) return badRequest("The body payload cannot be empty.");
         String[] files = bodyContent.get("file");
         final Optional<String> fileContent = files != null && files.length > 0 ? Optional.of(files[0]) : Optional.<String>absent();
         ParseHeaderNode urlHeader = new ParseHeaderNode(bodyJson, "url");
@@ -53,19 +53,19 @@ public class DataConvert extends Controller {
         }
 
         Document document;
-        if(fileContent.isPresent()){
+        if (fileContent.isPresent()) {
             document = XML.fromString(fileContent.get());
-        }else{
+        } else {
             F.Promise<Response> responseFuture = url(sourceUrl).get();
             Response response = responseFuture.get();
             document = response.asXml();
         }
-        JsonNode someData = convertToJson(document,rootXPath, bodyJson.get("structure"),bodyJson.get("fields"));
+        JsonNode someData = convertToJson(document, rootXPath, bodyJson.get("structure"), bodyJson.get("fields"));
         return ok(someData);
 
     }
 
-    private static JsonNode convertToJson(Document document,String rootXPath, JsonNode structure, JsonNode fields) {
+    private static JsonNode convertToJson(Document document, String rootXPath, JsonNode structure, JsonNode fields) {
         MyNamespaceContext myNamespaceContext = new MyNamespaceContext(null);
 
         NamedNodeMap attributes = document.getDocumentElement().getAttributes();
@@ -74,8 +74,8 @@ public class DataConvert extends Controller {
             String currentLocalName = currentAttribute.getLocalName();
             String currentPrefix = currentAttribute.getPrefix();
             String nodeValue = currentAttribute.getNodeValue();
-            if(XMLNAMESPACE.equals(currentPrefix)){
-                myNamespaceContext.prefixMap.put(currentLocalName,nodeValue);
+            if (XMLNAMESPACE.equals(currentPrefix)) {
+                myNamespaceContext.prefixMap.put(currentLocalName, nodeValue);
             }
 
         }
@@ -85,25 +85,31 @@ public class DataConvert extends Controller {
         javax.xml.xpath.XPath xPath = XPathFactory.newInstance().newXPath();
         xPath.setNamespaceContext(myNamespaceContext);
         try {
-            NodeList items = (NodeList) xPath.evaluate(rootXPath,document.getDocumentElement(), XPathConstants.NODESET);
+            NodeList items = (NodeList) xPath.evaluate(rootXPath, document.getDocumentElement(), XPathConstants.NODESET);
             for (int i = 0; i < items.getLength(); i++) {
                 Element item = (Element) items.item(i);
                 ObjectNode converted = Json.newObject();
-                Iterator<Map.Entry<String, JsonNode>> structureFields = structure.fields();
-                while (structureFields.hasNext()) {
-                    Map.Entry<String, JsonNode> next = structureFields.next();
-                    String value = (String) xPath.evaluate(next.getValue().asText(), item, XPathConstants.STRING);
-                    converted.put(next.getKey(),value);
+                if (structure != null) {
+                    Iterator<Map.Entry<String, JsonNode>> structureFields = structure.fields();
+                    while (structureFields.hasNext()) {
+                        Map.Entry<String, JsonNode> next = structureFields.next();
+                        String value = (String) xPath.evaluate(next.getValue().asText(), item, XPathConstants.STRING);
+                        converted.put(next.getKey(), value);
+                    }
                 }
 
                 for (JsonNode field : fields) {
-                    try{
-                        if(field.get("type") == null)
+                    try {
+                        if (field.get("type") == null)
                             continue;
-                        switch (field.get("type").asText()){
+                        switch (field.get("type").asText()) {
+
                             case "number":
-                                double value = (double) xPath.evaluate(field.get("path").asText(), item, XPathConstants.NUMBER);
-                                converted.put(field.get("value").asText(),value);
+                                Double value = (double) xPath.evaluate(field.get("path").asText(), item, XPathConstants.NUMBER);
+                                if (value != null && !Double.isNaN(value))
+                                    converted.put(field.get("value").asText(), value);
+                                else
+                                    converted.put(field.get("value").asText(), 0d);
                                 break;
                             case "date":
                                 String dateString = (String) xPath.evaluate(field.get("path").asText(), item, XPathConstants.STRING);
@@ -112,13 +118,13 @@ public class DataConvert extends Controller {
                             case "text":
                             default:
                                 String text = (String) xPath.evaluate(field.get("path").asText(), item, XPathConstants.STRING);
-                                converted.put(field.get("value").asText(),text);
+                                converted.put(field.get("value").asText(), text);
                                 break;
                         }
 
 
                     } catch (XPathExpressionException e) {
-                        converted.put(field.get("value").asText(),"Non trouvé");
+                        converted.put(field.get("value").asText(), "Non trouvé");
                         //Normal : invalidpath
                     }
                 }
@@ -134,20 +140,23 @@ public class DataConvert extends Controller {
 
     static public class MyNamespaceContext implements NamespaceContext {
         final private Map<String, String> prefixMap = Maps.newHashMap();
-        MyNamespaceContext(Map<String, String> prefixMap)
-        {
+
+        MyNamespaceContext(Map<String, String> prefixMap) {
 
         }
+
         public String getPrefix(String namespaceURI) {
             // TODO Auto-generated method stub
             return null;
         }
+
         public Iterator getPrefixes(String namespaceURI) {
             // TODO Auto-generated method stub
             return null;
         }
+
         public String getNamespaceURI(String prefix) {
-            if(prefixMap.containsKey(prefix))
+            if (prefixMap.containsKey(prefix))
                 return prefixMap.get(prefix);
             else
                 return "";
@@ -175,7 +184,7 @@ public class DataConvert extends Controller {
 
         public ParseHeaderNode invoke() {
             JsonNode url = bodyJson.get(this.fieldName);
-            if (url !=null && !url.isTextual()) {
+            if (url != null && !url.isTextual()) {
                 hasErrors = true;
                 return this;
             }
