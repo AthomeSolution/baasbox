@@ -62,7 +62,7 @@ public class Image extends ODocumentHookAbstract implements ODatabaseLifecycleLi
         String name = null;
         try {
             name = getAssetName(iDocument, FIELD_IMG);
-            ImageDownloader imageDL = new ImageDownloader(sUrl);
+            ImageDownloader imageDL = new ImageDownloader(sUrl.replace(" ", "%20"));
 
             if (Logger.isInfoEnabled())
                 Logger.info("Saving image to assets: " + sUrl);
@@ -110,7 +110,6 @@ public class Image extends ODocumentHookAbstract implements ODatabaseLifecycleLi
     }
 
     private static String getBaseUrl() {
-
         String host = Application.NETWORK_HTTP_URL.getValueAsString();
         String port = Application.NETWORK_HTTP_PORT.getValueAsString();
 
