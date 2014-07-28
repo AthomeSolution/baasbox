@@ -19,6 +19,9 @@ GET 	/console/						com.baasbox.controllers.Application.login()
 GET     /console/js/routes      	 	com.baasbox.controllers.AllRoutes.javascriptRoutes()
 GET     /console/*file               	controllers.Assets.at(path="/public/console", file)
 
+# Interface Static Asset
+GET 	/interface						controllers.Default.redirect(to = "/interface/")
+GET     /interface/*file               	controllers.Assets.at(path="/public/interface", file)
 
 #Assets action
 POST	/admin/asset						com.baasbox.controllers.Asset.post()
