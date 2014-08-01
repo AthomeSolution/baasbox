@@ -16,22 +16,42 @@
  */
 package com.baasbox.controllers;
 
-import static play.libs.Json.toJson;
-
-import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.security.InvalidParameterException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
-import java.util.zip.ZipInputStream;
-
+import com.baasbox.BBConfiguration;
+import com.baasbox.configuration.IProperties;
+import com.baasbox.configuration.Internal;
+import com.baasbox.configuration.PropertiesConfigurationHelper;
+import com.baasbox.controllers.actions.filters.CheckAdminRoleFilter;
+import com.baasbox.controllers.actions.filters.ConnectToDBFilter;
+import com.baasbox.controllers.actions.filters.ExtractQueryParameters;
+import com.baasbox.controllers.actions.filters.UserCredentialWrapFilter;
+import com.baasbox.dao.RoleDao;
+import com.baasbox.dao.UserDao;
+import com.baasbox.dao.exception.*;
+import com.baasbox.db.DbHelper;
+import com.baasbox.enumerations.DefaultRoles;
+import com.baasbox.exception.*;
+import com.baasbox.service.dbmanager.DbManagerService;
+import com.baasbox.service.permissions.PermissionTagService;
+import com.baasbox.service.storage.CollectionService;
+import com.baasbox.service.storage.StatisticsService;
+import com.baasbox.service.user.RoleService;
+import com.baasbox.service.user.UserService;
+import com.baasbox.util.*;
+import com.baasbox.util.JSONFormats.Formats;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.google.common.base.Objects;
+import com.google.common.collect.ImmutableMap;
+import com.orientechnologies.orient.core.db.record.ODatabaseRecordTx;
+import com.orientechnologies.orient.core.exception.OSerializationException;
+import com.orientechnologies.orient.core.index.OIndexException;
+import com.orientechnologies.orient.core.metadata.security.ORole;
+import com.orientechnologies.orient.core.metadata.security.OUser;
+import com.orientechnologies.orient.core.record.impl.ODocument;
+import com.orientechnologies.orient.core.serialization.serializer.OJSONWriter;
+import com.orientechnologies.orient.core.storage.ORecordDuplicatedException;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang.exception.ExceptionUtils;
-
 import play.Logger;
 import play.Play;
 import play.libs.F.Promise;
@@ -46,53 +66,17 @@ import play.mvc.Http.MultipartFormData.FilePart;
 import play.mvc.Result;
 import play.mvc.With;
 
-import com.baasbox.BBConfiguration;
-import com.baasbox.configuration.IProperties;
-import com.baasbox.configuration.Internal;
-import com.baasbox.configuration.PropertiesConfigurationHelper;
-import com.baasbox.controllers.actions.filters.CheckAdminRoleFilter;
-import com.baasbox.controllers.actions.filters.ConnectToDBFilter;
-import com.baasbox.controllers.actions.filters.ExtractQueryParameters;
-import com.baasbox.controllers.actions.filters.UserCredentialWrapFilter;
-import com.baasbox.dao.RoleDao;
-import com.baasbox.dao.UserDao;
-import com.baasbox.dao.exception.CollectionAlreadyExistsException;
-import com.baasbox.dao.exception.FileNotFoundException;
-import com.baasbox.dao.exception.InvalidCollectionException;
-import com.baasbox.dao.exception.InvalidModelException;
-import com.baasbox.dao.exception.InvalidPermissionTagException;
-import com.baasbox.dao.exception.SqlInjectionException;
-import com.baasbox.dao.exception.UserAlreadyExistsException;
-import com.baasbox.db.DbHelper;
-import com.baasbox.enumerations.DefaultRoles;
-import com.baasbox.exception.ConfigurationException;
-import com.baasbox.exception.RoleAlreadyExistsException;
-import com.baasbox.exception.RoleNotFoundException;
-import com.baasbox.exception.RoleNotModifiableException;
-import com.baasbox.exception.UserNotFoundException;
-import com.baasbox.service.dbmanager.DbManagerService;
-import com.baasbox.service.permissions.PermissionTagService;
-import com.baasbox.service.storage.CollectionService;
-import com.baasbox.service.storage.StatisticsService;
-import com.baasbox.service.user.RoleService;
-import com.baasbox.service.user.UserService;
-import com.baasbox.util.ConfigurationFileContainer;
-import com.baasbox.util.IQueryParametersKeys;
-import com.baasbox.util.JSONFormats;
-import com.baasbox.util.JSONFormats.Formats;
-import com.baasbox.util.QueryParams;
-import com.baasbox.util.Util;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.google.common.base.Objects;
-import com.google.common.collect.ImmutableMap;
-import com.orientechnologies.orient.core.db.record.ODatabaseRecordTx;
-import com.orientechnologies.orient.core.exception.OSerializationException;
-import com.orientechnologies.orient.core.index.OIndexException;
-import com.orientechnologies.orient.core.metadata.security.ORole;
-import com.orientechnologies.orient.core.metadata.security.OUser;
-import com.orientechnologies.orient.core.record.impl.ODocument;
-import com.orientechnologies.orient.core.serialization.serializer.OJSONWriter;
-import com.orientechnologies.orient.core.storage.ORecordDuplicatedException;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.security.InvalidParameterException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
+import java.util.zip.ZipInputStream;
+
+import static play.libs.Json.toJson;
 
 @With  ({UserCredentialWrapFilter.class,ConnectToDBFilter.class, CheckAdminRoleFilter.class,ExtractQueryParameters.class})
 public class Admin extends Controller {
@@ -923,5 +907,14 @@ public class Admin extends Controller {
         }
         if (Logger.isTraceEnabled())Logger.trace("Method End");
         return res;
+    }
+
+    public static Result executeRequest() {
+        String sql = request().body().asText();
+        if (StringUtils.isBlank(sql))
+            return badRequest("Empty request");
+        ODatabaseRecordTx conn = DbHelper.getConnection();
+        DbHelper.execMultiLineCommands(conn, Logger.isTraceEnabled(), sql.split(";"));
+        return ok();
     }
 }

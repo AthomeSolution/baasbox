@@ -279,6 +279,8 @@ POST	/admin/role/:name				com.baasbox.controllers.Admin.createRole(name: String)
 PUT		/admin/role/:name				com.baasbox.controllers.Admin.editRole(name: String)
 DELETE  /admin/role/:name				com.baasbox.controllers.Admin.deleteRole(name: String)
 
+POST    /admin/request                                          com.baasbox.controllers.Admin.executeRequest
+
 #Files
 
 # @tag(baasbox.file.read)
