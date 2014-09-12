@@ -17,14 +17,17 @@
 package com.baasbox.controllers;
 
 import java.io.IOException;
+import java.io.StringWriter;
 import java.security.InvalidParameterException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.commons.lang.exception.ExceptionUtils;
 import org.apache.commons.lang3.StringUtils;
 import com.fasterxml.jackson.databind.JsonNode;
 
+import org.w3c.dom.Element;
 import play.Logger;
 import play.mvc.BodyParser;
 import play.mvc.Controller;
@@ -63,6 +66,16 @@ import com.orientechnologies.orient.core.exception.OSecurityAccessException;
 import com.orientechnologies.orient.core.exception.OSecurityException;
 import com.orientechnologies.orient.core.id.ORID;
 import com.orientechnologies.orient.core.record.impl.ODocument;
+
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerConfigurationException;
+import javax.xml.transform.TransformerException;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.dom.DOMSource;
+import javax.xml.transform.stream.StreamResult;
 
 
 public class Document extends Controller {
@@ -139,7 +152,72 @@ public class Document extends Controller {
 
 		if (Logger.isTraceEnabled()) Logger.trace("Method End");
 		return ok(ret);
-	}		
+	}
+
+    @With ({UserOrAnonymousCredentialsFilter.class,ConnectToDBFilter.class,ExtractQueryParameters.class})
+    public static Result getXmlDocuments(String collectionName){
+        if (Logger.isTraceEnabled()) Logger.trace("Method Start");
+        if (Logger.isTraceEnabled()) Logger.trace("collectionName: " + collectionName);
+
+        List<ODocument> result;
+        String ret="{[]}";
+        try {
+            Context ctx=Http.Context.current.get();
+            QueryParams criteria = (QueryParams) ctx.args.get(IQueryParametersKeys.QUERY_PARAMETERS);
+            result = DocumentService.getDocuments(collectionName,criteria);
+            if (Logger.isTraceEnabled()) Logger.trace("count: " + result.size());
+        } catch (InvalidCollectionException e) {
+            if (Logger.isDebugEnabled()) Logger.debug (collectionName + " is not a valid collection name");
+            return notFound(collectionName + " is not a valid collection name");
+        } catch (Exception e){
+            Logger.error(ExceptionUtils.getFullStackTrace(e));
+            return internalServerError(e.getMessage());
+        }
+        try {
+
+            DocumentBuilderFactory docFactory = DocumentBuilderFactory.newInstance();
+            DocumentBuilder docBuilder = docFactory.newDocumentBuilder();
+            org.w3c.dom.Document doc = docBuilder.newDocument();
+            Element rootElement = doc.createElement(collectionName+"List");
+            doc.appendChild(rootElement);
+            for (ODocument document: result){
+                JSONFormats.cutBaasBoxFields(document);
+                Element element = doc.createElement(collectionName);
+                rootElement.appendChild(element);
+                for (Map.Entry<String, Object> fields : document) {
+                    Element fieldElement = doc.createElement(fields.getKey());
+                    element.appendChild(fieldElement);
+                    fieldElement.appendChild(doc.createTextNode(fields.getValue().toString()));
+                }
+            }
+
+            TransformerFactory transformerFactory = TransformerFactory.newInstance();
+            Transformer transformer = null;
+            transformer = transformerFactory.newTransformer();
+
+            DOMSource source = new DOMSource(doc);
+            StringWriter writer = new StringWriter();
+            StreamResult stream = new StreamResult(writer);
+
+            // Output to console for testing
+            // StreamResult result = new StreamResult(System.out);
+
+            transformer.transform(source, stream);
+            response().setContentType("text/xml");
+            return ok(writer.toString());
+        } catch (ParserConfigurationException e) {
+            Logger.error(ExceptionUtils.getFullStackTrace(e));
+            return internalServerError(e.getMessage());
+        } catch (TransformerConfigurationException e) {
+            Logger.error(ExceptionUtils.getFullStackTrace(e));
+            return internalServerError(e.getMessage());
+        } catch (TransformerException e) {
+            Logger.error(ExceptionUtils.getFullStackTrace(e));
+            return internalServerError(e.getMessage());
+        }
+
+    }
+
 
 	private static String getRidByString(String id , boolean isUUID) throws RidNotFoundException {
 		String rid=null;
